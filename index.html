@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<title>cgi_command web shell</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta name="description" content="cgi_command remote shell">
+		<link rel="icon" type="image/x-icon" href="cgicmd_favicon.ico">
+		<style>
+			:root {
+				--fg-color: #222;
+				--fg2-color: #444;
+				--bg-color: #fff;
+			}
+			body, html {
+				box-sizing: border-box;
+				background-color: var(--bg-color);
+				color: var(--fg-color);
+				font-family: sans-serif;
+				font-size: 12.5pt;
+				padding: 0 0;
+				margin: 0 0;
+				scroll-behavior: smooth;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root {
+					--fg-color: #fff;
+					--fg2-color: #bbb;
+					--bg-color: #111;
+				}
+			}
+			main {
+				max-width: 800px;
+				margin: 0 auto;
+				padding: 2em;
+			}
+			h2, h3, h4, h5, h6 {
+				color: var(--fg2-color);
+				padding: 1em;
+			}
+			.link {
+				color: #44f;
+				word-wrap: anywhere;
+				word-break: break-all;
+				flex-shrink: 1;
+			}
+			.form-row {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: baseline;
+				padding: 0.5em;
+			}
+			.form-row ul {
+				margin: 0;
+			}
+			.form-row input, .form-row select {
+				margin: 0 0.5em;
+				flex-grow: 1;
+			}
+			.form-row :first-child {
+				flex-basis: 250px;
+			}
+			.btn {
+				border-radius: 5px;
+				color: #eee;
+				background: #55f;
+				font-weight: bold;
+				border: 1px solid #88f;
+				outline: none;
+				padding: 0.2em;
+				margin: 0.2em;
+			}
+			.btn:hover {
+				background: #88f;
+				border: 1px solid #ccf;
+			}
+			.btn:focus {
+				border: 1px dotted #ccf;
+			}
+			.btn:active {
+				border: 1px solid #44f;
+			}
+			.btn_lg {
+				padding: 0.6em;
+				margin: 0.6em;
+			}
+			#response_text {
+				min-height: 200px;
+				max-height: 80vh;
+				overflow: auto;
+				border: 1px solid #888;
+				border-radius: 4px;
+				font-size: 11pt;
+			}
+		</style>
+	</head>
+	<body>
+		<main>
+			<h1>cgi_command web shell</h1>
+			<br>
+			<p>
+				You can specify a command below and run it on the server.
+			</p>
+			<h2>Parameters:</h2>
+			<div>
+				<div class="form-row">
+					<label for="command_input">Command:</label>
+					<input type="text" id="command_input" name="command_input" onchange="update()" value="top -bn1">
+				</div>
+				<div class="form-row">
+					<label for="content_type_input">Content-Type:</label>
+					<input type="text" id="content_type_input" name="content_type_input" value="text/plain" onchange="update()">
+				</div>
+				<div class="form-row">
+					<label for="merge_stderr_input">Merge stderr:</label>
+					<input type="checkbox" id="merge_stderr_input" name="merge_stderr_input" onchange="update()" checked>
+				</div>
+				<div class="form-row">
+					<label for="encoding_input">Encoding:</label>
+					<select id="encoding_input" name="encoding_input" onchange="update()">
+						<option value="none">none</option>
+						<option value="eventstream_bytes">eventstream_bytes</option>
+						<option value="eventstream_lines">eventstream_lines</option>
+						<option value="base64">base64</option>
+					</select>
+				</div>
+				<div>
+					<div class="form-row">
+						<label for="add_header_input">Headers:</label>
+						<ul id="headers_list">
+							<li>No headers</li>
+						</ul>
+					</div>
+					<div class="form-row">
+						<div></div>
+						<input type="text" id="add_header_input" name="add_header_input">
+						<button class="btn" onclick="btn_add_header()">Add header</button>
+					</div>
+				</div>
+				
+				<div>
+					<div class="form-row">
+						<label for="add_env_key_input">Environment variables:</label>
+						<ul id="env_list">
+							<li>No environment variables</li>
+						</ul>
+					</div>
+					<div class="form-row">
+						<div></div>
+						<div>
+							<input type="text" id="add_env_key_input">
+							<span>=</span>
+							<input type="text" id="add_env_value_input">
+							<button class="btn" onclick="btn_add_env_var()">Add env var</button>
+						</div>
+					</div>
+				</div>
+				<div>
+					<div>
+						<div class="form-row">
+							<div>
+								Request url:
+							</div>
+							<a class="link" id="request_url_link" href="#">http://example.com</a>
+						</div>
+					</div>
+				</div>
+				<div class="form-row">
+					<div></div>
+					<button class="btn btn_lg" onclick="btn_send_request()">Send request</button>
+					<button class="btn btn_lg" onclick="btn_open_in_new_tab()">Open in new tab</button>
+				</div>
+			</div>
+			<h2>Output:</h2>
+			<div>
+				<pre id="response_text">(Press "Send request" to update this output)</pre>
+			</div>
+		</main>
+		<script src="CgiCommand.js"></script>
+		<script src="ShellUtils.js"></script>
+		<script>
+			let base_url = "cgi-bin/cgi_command.sh"
+			let headers = []
+			let env_vars = []
+
+			// split a string along space characters, but not in quotes
+			// TODO: This is probably not exactly what the user expects, should use eval instead?
+			let split_regex = /[^\s"]+|"([^"]*)"/gi;
+			function split(str) {
+				var arr = [];
+				do {
+					var match = split_regex.exec(str);
+					if (match) {
+						arr.push(match[1] ? match[1] : match[0])
+					}
+				} while (match)
+				return arr
+			}
+
+			// get the CgiCommand for the current input values on the page
+			function get_cmd() {
+				let command = split(command_input.value)
+				let content_type = content_type_input.value
+				let merge_stderr = merge_stderr_input.checked
+				let encoding = encoding_input.value
+				return new CgiCommand(command, base_url, encoding, headers, env_vars, content_type, merge_stderr)
+			}
+
+			// update the values displayed on the page
+			function update() {
+				// get the current 
+				let cmd = get_cmd()
+				
+				// update the link
+				let url = cmd.get_url()
+				request_url_link.href = url
+				request_url_link.innerText = url
+
+				// update env vars/headers on the page
+				env_list.innerHTML = (env_vars.length==0) ? "<li>No environment variables</li>" : env_vars.map((e) => "<li>" + e + "</li>").join("\n")
+				headers_list.innerHTML = (headers.length==0) ? "<li>No headers</li>" : headers.map((e) => "<li>" + e + "</li>").join("\n")
+			}
+
+			// add a single header to the list of headers
+			function btn_add_header() {
+				if (add_header_input.value == "") { return; }
+				headers.push(add_header_input.value)
+				add_header_input.value = ""
+				update()
+			}
+
+			// add a single environment variable to the list
+			function btn_add_env_var() {
+				let export_str = add_env_key_input.value + "=" + add_env_value_input.value
+				if (export_str == "=") { return; }
+				env_vars.push(export_str)
+				add_env_key_input.value = ""
+				add_env_value_input.value = ""
+				update()
+			}
+
+			// send the request "inline"(update the output text with the results)
+			function btn_send_request() {
+				let cmd = get_cmd()
+				if (encoding_input.value == "none" || encoding_input.value == "base64") {
+					response_text.innerText = "waiting for response..."
+					response_text.scrollIntoView()
+					let resp = cmd.xhr("GET", undefined, (data) => {
+						response_text.innerText = data
+						response_text.scrollIntoView()
+					})
+				} else if (encoding_input.value == "eventstream_lines" || encoding_input.value == "eventstream_bytes") {
+					response_text.innerText = "(waiting for stream start)\n"
+					response_text.scrollIntoView()
+					let open_cb = (stream_type) => response_text.innerText += `(stream start)\n\n`
+					let data_cb = (s) => response_text.innerText += s
+					let ret_cb = (c) => {response_text.innerText += `\n(command returned: ${c})\n`; response_text.scrollIntoView()}
+					cmd.stream(open_cb, data_cb, ret_cb)
+				}
+			}
+
+			// open the request URL in a new tab
+			function btn_open_in_new_tab() {
+				open(get_cmd().get_url(), "_blank")
+			}
+
+			update()
+		</script>
+	</body>
+</html>
+
+
