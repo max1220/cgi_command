@@ -18,46 +18,6 @@ and allows all HTTP methods(parameters are always URL-encoded).
 
 
 
-# CgiCommand.js
-
-This JavaScript library contains the base functionality for generating URLs and
-executing requests to the CGI script.
-
-
-## `CgiCommand` Constructor
-
-The constructor arguments are put into the properties, and never used directly.
-
-```
-CgiCommand(command, base_url=CGI_BACKEND, encoding="none", headers=[], env=[], content_type="text/plain", merge_stderr=true)
-```
-
-
-## Properties
-
- * command
- * base_url
- * encoding
- * headers
- * env
- * merge_stderr
- * content_type
-
-
-## Methods
-
-All methods make use of properties, not constructor arguments directly.
-
- * get_url()
-  - Return the URL base on the current properties
- * xhr_sync(method="GET", body)
-  - Perform a synchronous XHR, and return the request
- * xhr(method="GET", body, resp_cb, progress_cb)
-  - Perform an asynchronous XHR, and register the callback(returns the request immediately)
- * stream(open_cb, data_cb, ret_cb)
-  - Start streaming events using the Server-Sent Events/EventSource() mechanism.
-
-
 # cgi-bin/cgi_command.sh
 
 This is the server-side CGI script that runs the command and encodes the output.
@@ -117,6 +77,47 @@ Supported parameters in the QUERY_STRING. Some options can be specified multiple
 
 
 
+# CgiCommand.js
+
+This JavaScript library contains the base functionality for generating URLs and
+executing requests to the CGI script.
+
+
+## `CgiCommand` Constructor
+
+The constructor arguments are put into the properties, and never used directly.
+
+```
+CgiCommand(command, base_url=CGI_BACKEND, encoding="none", headers=[], env=[], content_type="text/plain", merge_stderr=true)
+```
+
+
+## Properties
+
+ * command
+ * base_url
+ * encoding
+ * headers
+ * env
+ * merge_stderr
+ * content_type
+
+
+## Methods
+
+All methods make use of properties, not constructor arguments directly.
+
+ * get_url()
+   - Return the URL base on the current properties
+ * xhr_sync(method="GET", body)
+   - Perform a synchronous XHR, and return the request
+ * xhr(method="GET", body, resp_cb, progress_cb)
+   - Perform an asynchronous XHR, and register the callback(returns the request immediately)
+ * stream(open_cb, data_cb, ret_cb)
+   - Start streaming events using the Server-Sent Events/EventSource() mechanism.
+
+
+
 # ShellUtils.js
 
 This JavaScript library contains shell related utillity functions.
@@ -150,12 +151,12 @@ creating the requests.
 All methods use synchronous XHRs.
 
  * run(cmd, body)
-  - Runs the command(array of strings), optionally with body sent to stdin
+   - Runs the command(array of strings), optionally with body sent to stdin
  * run_script(script_str)
-  - Runs the script_str by providing it on stdin to bash.
+   - Runs the script_str by providing it on stdin to bash.
  * upload_to_path(data, path)
-  - Upload the specified data(string) to path
+   - Upload the specified data(string) to path
  * get_file_url(path, content_type="application/octet-stream")
-  - Get a URL to this file on the server(`cat $path` with content_type)
+   - Get a URL to this file on the server(`cat $path` with content_type)
  * get_env()
-  - Get the parsed environment the CGI script runs with(`printenv`)
+   - Get the parsed environment the CGI script runs with(`printenv`)
