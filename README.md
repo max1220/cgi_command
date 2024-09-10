@@ -86,6 +86,9 @@ You can start a test instance like this(from this directory):
 busybox httpd -v -f -p 127.0.0.1:8080 -c busybox_httpd.conf
 ```
 
+You should change the default username/password(`user`/`password`) in `busybox_httpd.conf`.
+
+
 ## nginx
 
 If you want to use nginx to host this script, you can use fcgiwrapd to listen
